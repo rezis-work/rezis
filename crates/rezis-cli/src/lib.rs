@@ -141,7 +141,7 @@ fn cargo_toml(package_name: &str, rezis_path: Option<&Path>) -> String {
             let path_str = normalize_path_for_manifest(p);
             format!(r#"rezis = {{ path = "{path_str}" }}"#)
         }
-        None => r#"rezis = "0.1""#.to_string(),
+        None => r#"rezis = "0.1.0-alpha.1""#.to_string(),
     };
     format!(
         r#"[package]
