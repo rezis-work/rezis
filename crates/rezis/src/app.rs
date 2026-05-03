@@ -3,6 +3,7 @@ use axum::Router;
 use http::Method;
 use std::borrow::Cow;
 
+use crate::config::RezisConfig;
 use crate::logging;
 use crate::module::{Module, ModuleContext};
 use crate::routing::{add_get, add_health_route, add_post};
@@ -80,7 +81,21 @@ impl RezisApp {
         self
     }
 
+    /// Binds using **`PORT`** from the environment (after loading `.env`).
+    ///
+    /// Prefer this when configuration lives in `.env`. Use [`Self::listen`] with an explicit
+    /// address when you want to embed the bind target in code.
+    pub async fn listen_from_env(self) {
+        let cfg = RezisConfig::from_env();
+        self.listen(cfg.bind_address()).await;
+    }
+
+    /// Starts the HTTP server on **`addr`**.
+    ///
+    /// Loads `.env` from the working directory first (ignored if missing) so variables such as
+    /// **`RUST_LOG`** are visible to tracing and other env-driven behavior.
     pub async fn listen<A: tokio::net::ToSocketAddrs>(self, addr: A) {
+        dotenvy::dotenv().ok();
         let listener = tokio::net::TcpListener::bind(addr)
             .await
             .expect("Failed to bind server");

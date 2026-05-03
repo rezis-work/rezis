@@ -1,6 +1,7 @@
 //! Rezis — NestJS-inspired Rust backend framework for clean, modular APIs.
 
 mod app;
+mod config;
 mod controller;
 mod error;
 mod logging;
@@ -10,6 +11,7 @@ mod routing;
 mod validation;
 
 pub use app::RezisApp;
+pub use config::RezisConfig;
 pub use controller::{Controller, RouteBuilder};
 pub use error::{
     validation_errors_to_details, ApiErrorBody, ApiFailure, DetailedRezisError, RezisError,

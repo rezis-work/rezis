@@ -5,6 +5,6 @@ async fn main() {
     RezisApp::new()
         .get("/", || async { json("Hello from Rezis") })
         .with_health("/health")
-        .listen("0.0.0.0:3000")
+        .listen_from_env()
         .await;
 }

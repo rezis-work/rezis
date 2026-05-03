@@ -8,6 +8,6 @@ use rezis::RezisApp;
 async fn main() {
     RezisApp::new()
         .module(AppModule::new())
-        .listen("0.0.0.0:3000")
+        .listen_from_env()
         .await;
 }
