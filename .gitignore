@@ -1,0 +1,16 @@
+/target
+**/*.rs.bk
+
+# environment
+.env
+.env.local
+.env.*.local
+
+# logs
+*.log
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
+IMPLEMENTATION_GUIDE.md

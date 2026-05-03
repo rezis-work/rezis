@@ -1,0 +1,8 @@
+[package]
+name = "hello-api"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+rezis = { path = "../../crates/rezis" }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
