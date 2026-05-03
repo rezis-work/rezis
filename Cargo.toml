@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/rezis", "examples/hello-api"]
+members = ["crates/rezis", "examples/hello-api", "examples/users-api"]
 
 [workspace.package]
 edition = "2021"

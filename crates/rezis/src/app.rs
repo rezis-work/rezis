@@ -1,8 +1,10 @@
 use axum::handler::Handler;
-use axum::routing::{get, post};
 use axum::Router;
 use http::Method;
 use std::borrow::Cow;
+
+use crate::module::{Module, ModuleContext};
+use crate::routing::{add_get, add_health_route, add_post};
 
 /// NestJS-style fluent app builder over Axum.
 pub struct RezisApp {
@@ -18,38 +20,36 @@ impl RezisApp {
         }
     }
 
-    /// Register a GET handler (same constraints as Axum's [`get`]).
+    /// Register a NestJS-style module tree on this app.
+    pub fn module(mut self, module: impl Module) -> Self {
+        let mut ctx = ModuleContext::new(&mut self.router, &mut self.routes);
+        module.register(&mut ctx);
+        self
+    }
+
+    /// Register a GET handler (same constraints as Axum's [`axum::routing::get`]).
     pub fn get<H, T>(mut self, path: impl Into<String>, handler: H) -> Self
     where
         H: Handler<T, ()> + Clone + Send + Sync + 'static,
         T: 'static,
     {
-        let path = path.into();
-        self.routes.push((Method::GET, path.clone()));
-        self.router = self.router.route(&path, get(handler));
+        add_get(&mut self.router, &mut self.routes, path, handler);
         self
     }
 
-    /// Register a POST handler (same constraints as Axum's [`post`]).
+    /// Register a POST handler (same constraints as Axum's [`axum::routing::post`]).
     pub fn post<H, T>(mut self, path: impl Into<String>, handler: H) -> Self
     where
         H: Handler<T, ()> + Clone + Send + Sync + 'static,
         T: 'static,
     {
-        let path = path.into();
-        self.routes.push((Method::POST, path.clone()));
-        self.router = self.router.route(&path, post(handler));
+        add_post(&mut self.router, &mut self.routes, path, handler);
         self
     }
 
     /// Convenience GET handler returning enveloped `{ "status": "ok" }` data.
     pub fn with_health(mut self, path: impl Into<Cow<'static, str>>) -> Self {
-        let path = path.into().into_owned();
-        self.routes.push((Method::GET, path.clone()));
-        self.router = self.router.route(
-            &path,
-            get(|| async { crate::json(serde_json::json!({ "status": "ok" })) }),
-        );
+        add_health_route(&mut self.router, &mut self.routes, path.into().into_owned());
         self
     }
 

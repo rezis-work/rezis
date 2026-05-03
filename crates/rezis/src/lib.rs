@@ -1,11 +1,16 @@
 //! Rezis — NestJS-inspired Rust backend framework for clean, modular APIs.
 
 mod app;
+mod controller;
 mod error;
+mod module;
 mod response;
+mod routing;
 
 pub use app::RezisApp;
+pub use controller::{Controller, RouteBuilder};
 pub use error::{ApiErrorBody, ApiFailure, DetailedRezisError, RezisError};
+pub use module::{Module, ModuleContext};
 pub use response::{json, ApiSuccess};
 pub use serde_json;
 
@@ -53,5 +58,90 @@ mod tests {
         let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(v["success"], true);
         assert_eq!(v["data"]["status"], "ok");
+    }
+
+    struct RootModule;
+
+    impl Module for RootModule {
+        fn register(&self, ctx: &mut ModuleContext<'_>) {
+            ctx.module(UsersLeafModule);
+            ctx.module(ParallelLeafModule);
+        }
+    }
+
+    struct UsersLeafModule;
+
+    impl Module for UsersLeafModule {
+        fn register(&self, ctx: &mut ModuleContext<'_>) {
+            ctx.controller(UsersTestController);
+        }
+    }
+
+    struct ParallelLeafModule;
+
+    impl Module for ParallelLeafModule {
+        fn register(&self, ctx: &mut ModuleContext<'_>) {
+            ctx.controller(ExtraTestController);
+        }
+    }
+
+    #[derive(Clone, Copy)]
+    struct UsersTestController;
+
+    impl Controller for UsersTestController {
+        fn register<'a>(&self, routes: RouteBuilder<'a>) -> RouteBuilder<'a> {
+            routes.get("/users", || async {
+                json(vec![
+                    serde_json::json!({"id": 1, "name": "Ada"}),
+                    serde_json::json!({"id": 2, "name": "Grace"}),
+                ])
+            })
+        }
+    }
+
+    #[derive(Clone, Copy)]
+    struct ExtraTestController;
+
+    impl Controller for ExtraTestController {
+        fn register<'a>(&self, routes: RouteBuilder<'a>) -> RouteBuilder<'a> {
+            routes.get("/extra", || async { json("ok") })
+        }
+    }
+
+    #[tokio::test]
+    async fn nested_modules_merge_users_and_parallel_routes() {
+        let app = RezisApp::new().module(RootModule).into_router();
+
+        let users = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/users")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(users.status(), StatusCode::OK);
+        let bytes = to_bytes(users.into_body(), usize::MAX).await.unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(v["success"], true);
+        assert!(v["data"].is_array());
+        assert_eq!(v["data"].as_array().unwrap().len(), 2);
+
+        let extra = app
+            .oneshot(
+                Request::builder()
+                    .uri("/extra")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(extra.status(), StatusCode::OK);
+        let bytes = to_bytes(extra.into_body(), usize::MAX).await.unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(v["success"], true);
+        assert_eq!(v["data"], "ok");
     }
 }
