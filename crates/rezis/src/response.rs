@@ -1,6 +1,8 @@
 use axum::Json;
 use serde::Serialize;
 
+use crate::error::RezisError;
+
 /// Successful API envelope: `{ "success": true, "data": T }`.
 #[derive(Debug, Serialize)]
 #[serde(bound(serialize = "T: Serialize"))]
@@ -16,6 +18,9 @@ pub fn json<T: Serialize>(value: T) -> Json<ApiSuccess<T>> {
         data: value,
     })
 }
+
+/// Typed JSON handler result using the standard success envelope.
+pub type JsonResult<T> = Result<Json<ApiSuccess<T>>, RezisError>;
 
 #[cfg(test)]
 mod tests {

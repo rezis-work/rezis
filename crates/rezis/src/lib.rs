@@ -1,30 +1,22 @@
 //! Rezis — NestJS-inspired Rust backend framework for clean, modular APIs.
 
-mod app;
-mod config;
-mod controller;
-mod error;
+pub mod app;
+pub mod config;
+pub mod controller;
+pub mod error;
 mod logging;
-mod module;
-mod response;
+pub mod module;
+pub mod response;
 mod routing;
-mod validation;
+pub mod validation;
 
 pub use app::RezisApp;
 pub use config::RezisConfig;
 pub use controller::{Controller, RouteBuilder};
-pub use error::{
-    validation_errors_to_details, ApiErrorBody, ApiFailure, DetailedRezisError, RezisError,
-};
+pub use error::{ApiErrorBody, ApiFailure, RezisError};
 pub use module::{Module, ModuleContext};
-pub use response::{json, ApiSuccess};
-pub use serde_json;
+pub use response::{json, ApiSuccess, JsonResult};
 pub use validation::ValidatedJson;
-
-use axum::Json;
-
-/// Typed JSON handler result using the standard success envelope.
-pub type JsonResult<T> = Result<Json<ApiSuccess<T>>, RezisError>;
 
 #[cfg(test)]
 mod tests {

@@ -52,8 +52,8 @@ impl RezisError {
         self.to_string()
     }
 
-    /// Attach structured validation details (Phase 3 use); Phase 1 callers can ignore.
-    pub fn with_details(self, details: Value) -> DetailedRezisError {
+    /// Attach structured validation details for `VALIDATION_ERROR`-style payloads (crate-internal).
+    pub(crate) fn with_details(self, details: Value) -> DetailedRezisError {
         DetailedRezisError {
             inner: self,
             details: Some(details),
@@ -63,7 +63,7 @@ impl RezisError {
 
 /// Converts [`validator::ValidationErrors`] into `{ "field": ["message", ...], ... }`.
 /// Nested structs use dotted paths (`parent.child`).
-pub fn validation_errors_to_details(errors: &ValidationErrors) -> Value {
+pub(crate) fn validation_errors_to_details(errors: &ValidationErrors) -> Value {
     let mut map = Map::new();
     append_validation_errors(errors, "", &mut map);
     Value::Object(map)
@@ -103,7 +103,7 @@ fn append_validation_errors(errors: &ValidationErrors, prefix: &str, map: &mut M
 }
 
 /// [`RezisError`] plus optional `details` for `VALIDATION_ERROR`-style payloads.
-pub struct DetailedRezisError {
+pub(crate) struct DetailedRezisError {
     inner: RezisError,
     details: Option<Value>,
 }

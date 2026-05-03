@@ -1,0 +1,21 @@
+[package]
+name = "rezis-cli"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "CLI for the Rezis framework — project and code generators."
+
+[[bin]]
+name = "rezis"
+path = "src/main.rs"
+
+[lib]
+name = "rezis_cli"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+
+[dev-dependencies]
+tempfile = "3"
