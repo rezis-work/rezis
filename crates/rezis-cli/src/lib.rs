@@ -470,7 +470,7 @@ fn write_file(path: &Path, content: &str, force: bool) -> anyhow::Result<()> {
     fs::write(path, content).with_context(|| format!("write {}", path.display()))
 }
 
-fn merge_mod_rs(path: &Path, line: &str) -> anyhow::Result<()> {
+pub(crate) fn merge_mod_rs(path: &Path, line: &str) -> anyhow::Result<()> {
     let content = if path.exists() {
         fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?
     } else {
@@ -491,18 +491,15 @@ fn merge_mod_rs(path: &Path, line: &str) -> anyhow::Result<()> {
     fs::write(path, out).with_context(|| format!("write {}", path.display()))
 }
 
-fn patch_modules_mod(path: &Path, module_name: &str) -> anyhow::Result<()> {
-    let line = format!("pub mod {module_name};");
-    let content = if path.exists() {
-        fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?
-    } else {
-        bail!("missing `{}` — run `rezis new` first", path.display());
-    };
-    if content.lines().any(|l| l.trim() == line) {
-        return Ok(());
+pub(crate) fn patch_modules_mod(path: &Path, module_name: &str) -> anyhow::Result<()> {
+    if !path.exists() {
+        bail!(
+            "missing `{}` — run `rezis new` first",
+            path.display()
+        );
     }
-    let out = format!("{}{}\n", content.trim_end(), line);
-    fs::write(path, out).with_context(|| format!("write {}", path.display()))
+    let line = format!("pub mod {module_name};\n");
+    merge_mod_rs(path, &line)
 }
 
 fn patch_app_module(path: &Path, snake: &str, pascal: &str) -> anyhow::Result<()> {
@@ -715,11 +712,26 @@ mod tests {
     }
 
     #[test]
-    fn patch_modules_inserts_once() {
-        let mut s = "pub mod health;\n".to_string();
-        let line = "pub mod users;";
-        assert!(!s.lines().any(|l| l.trim() == line));
-        s = format!("{}{}\n", s.trim_end(), line);
-        assert!(s.contains("pub mod users;"));
+    fn merge_mod_rs_inserts_once_and_is_idempotent() -> anyhow::Result<()> {
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join("mod.rs");
+        merge_mod_rs(&path, "pub mod foo;\n")?;
+        merge_mod_rs(&path, "pub mod foo;\n")?;
+        let s = fs::read_to_string(&path)?;
+        assert_eq!(s.matches("pub mod foo").count(), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn patch_modules_mod_appends_and_is_idempotent() -> anyhow::Result<()> {
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join("mod.rs");
+        fs::write(&path, "pub mod health;\n")?;
+        patch_modules_mod(&path, "users")?;
+        patch_modules_mod(&path, "users")?;
+        let s = fs::read_to_string(&path)?;
+        assert!(s.contains("pub mod health;"));
+        assert_eq!(s.matches("pub mod users").count(), 1);
+        Ok(())
     }
 }
