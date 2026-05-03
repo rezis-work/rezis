@@ -493,10 +493,7 @@ pub(crate) fn merge_mod_rs(path: &Path, line: &str) -> anyhow::Result<()> {
 
 pub(crate) fn patch_modules_mod(path: &Path, module_name: &str) -> anyhow::Result<()> {
     if !path.exists() {
-        bail!(
-            "missing `{}` — run `rezis new` first",
-            path.display()
-        );
+        bail!("missing `{}` — run `rezis new` first", path.display());
     }
     let line = format!("pub mod {module_name};\n");
     merge_mod_rs(path, &line)
