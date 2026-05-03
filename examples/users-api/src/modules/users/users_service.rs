@@ -1,9 +1,12 @@
 use serde::Serialize;
 
+use super::users_dto::CreateUserDto;
+
 #[derive(Debug, Clone, Serialize)]
 pub struct User {
     pub id: u64,
-    pub name: &'static str,
+    pub name: String,
+    pub email: String,
 }
 
 #[derive(Clone, Default)]
@@ -16,11 +19,24 @@ impl UsersService {
 
     pub async fn find_all(&self) -> Vec<User> {
         vec![
-            User { id: 1, name: "Ada" },
+            User {
+                id: 1,
+                name: "Ada".into(),
+                email: "ada@example.com".into(),
+            },
             User {
                 id: 2,
-                name: "Grace",
+                name: "Grace".into(),
+                email: "grace@example.com".into(),
             },
         ]
+    }
+
+    pub async fn create(&self, dto: CreateUserDto) -> User {
+        User {
+            id: 3,
+            name: dto.name,
+            email: dto.email,
+        }
     }
 }

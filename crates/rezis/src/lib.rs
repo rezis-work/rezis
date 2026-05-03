@@ -6,13 +6,17 @@ mod error;
 mod module;
 mod response;
 mod routing;
+mod validation;
 
 pub use app::RezisApp;
 pub use controller::{Controller, RouteBuilder};
-pub use error::{ApiErrorBody, ApiFailure, DetailedRezisError, RezisError};
+pub use error::{
+    validation_errors_to_details, ApiErrorBody, ApiFailure, DetailedRezisError, RezisError,
+};
 pub use module::{Module, ModuleContext};
 pub use response::{json, ApiSuccess};
 pub use serde_json;
+pub use validation::ValidatedJson;
 
 use axum::Json;
 
@@ -23,8 +27,73 @@ pub type JsonResult<T> = Result<Json<ApiSuccess<T>>, RezisError>;
 mod tests {
     use super::*;
     use axum::body::{to_bytes, Body};
+    use axum::routing::post;
+    use axum::Router;
     use http::{Request, StatusCode};
+    use serde::Deserialize;
     use tower::ServiceExt;
+    use validator::Validate;
+
+    #[derive(Debug, Deserialize, Validate)]
+    struct EmailDto {
+        #[validate(email)]
+        email: String,
+    }
+
+    async fn echo_email(
+        ValidatedJson(_payload): ValidatedJson<EmailDto>,
+    ) -> JsonResult<&'static str> {
+        Ok(json("ok"))
+    }
+
+    #[tokio::test]
+    async fn validated_json_invalid_json_returns_invalid_json_code() {
+        let app = Router::new().route("/t", post(echo_email));
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/t")
+                    .header("content-type", "application/json")
+                    .body(Body::from("{not-json"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+        let bytes = to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(v["success"], false);
+        assert_eq!(v["error"]["code"], "INVALID_JSON");
+    }
+
+    #[tokio::test]
+    async fn validated_json_bad_email_returns_validation_envelope() {
+        let app = Router::new().route("/t", post(echo_email));
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/t")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"email":"not-valid"}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+        let bytes = to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(v["success"], false);
+        assert_eq!(v["error"]["code"], "VALIDATION_ERROR");
+        assert_eq!(v["error"]["message"], "Invalid request body");
+        let emails = v["error"]["details"]["email"]
+            .as_array()
+            .expect("email details");
+        assert!(!emails.is_empty());
+    }
 
     #[tokio::test]
     async fn router_root_and_health_return_success_envelope() {

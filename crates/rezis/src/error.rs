@@ -2,12 +2,15 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use serde::Serialize;
-use serde_json::Value;
+use serde_json::{Map, Value};
+use validator::ValidationErrors;
 
 #[derive(Debug, thiserror::Error)]
 pub enum RezisError {
     #[error("{0}")]
     BadRequest(String),
+    #[error("{0}")]
+    InvalidJson(String),
     #[error("{0}")]
     Unauthorized(String),
     #[error("{0}")]
@@ -24,6 +27,7 @@ impl RezisError {
     pub fn code(&self) -> &'static str {
         match self {
             RezisError::BadRequest(_) => "BAD_REQUEST",
+            RezisError::InvalidJson(_) => "INVALID_JSON",
             RezisError::Unauthorized(_) => "UNAUTHORIZED",
             RezisError::Forbidden(_) => "FORBIDDEN",
             RezisError::NotFound(_) => "NOT_FOUND",
@@ -34,7 +38,9 @@ impl RezisError {
 
     fn status_code(&self) -> StatusCode {
         match self {
-            RezisError::BadRequest(_) | RezisError::Validation(_) => StatusCode::BAD_REQUEST,
+            RezisError::BadRequest(_) | RezisError::InvalidJson(_) | RezisError::Validation(_) => {
+                StatusCode::BAD_REQUEST
+            }
             RezisError::Unauthorized(_) => StatusCode::UNAUTHORIZED,
             RezisError::Forbidden(_) => StatusCode::FORBIDDEN,
             RezisError::NotFound(_) => StatusCode::NOT_FOUND,
@@ -51,6 +57,47 @@ impl RezisError {
         DetailedRezisError {
             inner: self,
             details: Some(details),
+        }
+    }
+}
+
+/// Converts [`validator::ValidationErrors`] into `{ "field": ["message", ...], ... }`.
+/// Nested structs use dotted paths (`parent.child`).
+pub fn validation_errors_to_details(errors: &ValidationErrors) -> Value {
+    let mut map = Map::new();
+    append_validation_errors(errors, "", &mut map);
+    Value::Object(map)
+}
+
+fn append_validation_errors(errors: &ValidationErrors, prefix: &str, map: &mut Map<String, Value>) {
+    for (field, errs) in errors.field_errors() {
+        let key = if prefix.is_empty() {
+            field.to_string()
+        } else {
+            format!("{}.{}", prefix, field)
+        };
+        let messages: Vec<Value> = errs
+            .iter()
+            .map(|e| {
+                Value::String(
+                    e.message
+                        .as_ref()
+                        .map(|m| m.as_ref().to_owned())
+                        .unwrap_or_else(|| e.code.to_string()),
+                )
+            })
+            .collect();
+        map.insert(key, Value::Array(messages));
+    }
+
+    for (field, kind) in errors.errors() {
+        if let validator::ValidationErrorsKind::Struct(ref nested) = kind {
+            let next = if prefix.is_empty() {
+                field.to_string()
+            } else {
+                format!("{}.{}", prefix, field)
+            };
+            append_validation_errors(nested, &next, map);
         }
     }
 }
@@ -111,6 +158,8 @@ impl IntoResponse for RezisError {
 mod tests {
     use super::*;
     use axum::body::to_bytes;
+    use serde::Deserialize;
+    use validator::Validate;
 
     #[tokio::test]
     async fn not_found_response_shape() {
@@ -121,5 +170,23 @@ mod tests {
         assert_eq!(v["success"], false);
         assert_eq!(v["error"]["code"], "NOT_FOUND");
         assert_eq!(v["error"]["message"], "User not found");
+    }
+
+    #[derive(Debug, Deserialize, Validate)]
+    struct EmailDto {
+        #[validate(email)]
+        email: String,
+    }
+
+    #[test]
+    fn validation_errors_to_details_email() {
+        let dto = EmailDto {
+            email: "not-an-email".into(),
+        };
+        let err = dto.validate().expect_err("invalid email");
+        let details = validation_errors_to_details(&err);
+        let emails = details["email"].as_array().expect("email details");
+        assert!(!emails.is_empty());
+        assert!(emails[0].as_str().unwrap().to_lowercase().contains("email"));
     }
 }
