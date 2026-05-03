@@ -3,6 +3,7 @@ use axum::Router;
 use http::Method;
 use std::borrow::Cow;
 
+use crate::logging;
 use crate::module::{Module, ModuleContext};
 use crate::routing::{add_get, add_health_route, add_post};
 
@@ -50,6 +51,32 @@ impl RezisApp {
     /// Convenience GET handler returning enveloped `{ "status": "ok" }` data.
     pub fn with_health(mut self, path: impl Into<Cow<'static, str>>) -> Self {
         add_health_route(&mut self.router, &mut self.routes, path.into().into_owned());
+        self
+    }
+
+    /// Enables HTTP request tracing via [`tower_http::trace::TraceLayer`].
+    ///
+    /// Initializes a global [`tracing_subscriber`] once (`fmt` + [`tracing_subscriber::EnvFilter`]).
+    /// Uses `RUST_LOG` when set and valid; otherwise defaults to **info**.
+    ///
+    /// Layer ordering: if you call [`Self::with_logging`] **before** [`Self::with_cors`], CORS is the
+    /// **outermost** layer (see [`Self::with_cors`]).
+    pub fn with_logging(mut self) -> Self {
+        logging::ensure_tracing_initialized();
+        self.router = self
+            .router
+            .layer(tower_http::trace::TraceLayer::new_for_http());
+        self
+    }
+
+    /// Adds a permissive [`tower_http::cors::CorsLayer`] (reflects any origin/method/header).
+    ///
+    /// Intended for **development** only. In production, build a [`tower_http::cors::CorsLayer`]
+    /// with explicit origins, methods, and headers instead of calling this helper.
+    ///
+    /// When chained after [`Self::with_logging`], this layer wraps tracing — requests hit **CORS → trace → routes**.
+    pub fn with_cors(mut self) -> Self {
+        self.router = self.router.layer(tower_http::cors::CorsLayer::permissive());
         self
     }
 

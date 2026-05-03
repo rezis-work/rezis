@@ -3,6 +3,7 @@
 mod app;
 mod controller;
 mod error;
+mod logging;
 mod module;
 mod response;
 mod routing;
@@ -212,5 +213,24 @@ mod tests {
         let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(v["success"], true);
         assert_eq!(v["data"], "ok");
+    }
+
+    #[tokio::test]
+    async fn layered_logging_and_cors_still_serve_requests() {
+        let app = RezisApp::new()
+            .with_logging()
+            .with_cors()
+            .get("/ping", || async { json("pong") })
+            .into_router();
+
+        let resp = app
+            .oneshot(Request::builder().uri("/ping").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let bytes = to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(v["success"], true);
+        assert_eq!(v["data"], "pong");
     }
 }
