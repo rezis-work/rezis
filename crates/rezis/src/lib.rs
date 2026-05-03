@@ -1,5 +1,28 @@
-//! Rezis — NestJS-inspired Rust backend framework for clean, modular APIs.
-
+//! Rezis is a NestJS-inspired Rust backend framework built on Axum.
+//!
+//! It provides a small stable surface for building modular APIs with:
+//!
+//! - [`RezisApp`] — fluent builder, `.env` listen, logging/CORS helpers
+//! - [`Module`] and [`ModuleContext`] — NestJS-style registration tree
+//! - [`Controller`] and [`RouteBuilder`] — route registration per controller
+//! - JSON response envelopes via [`json`] and [`ApiSuccess`]
+//! - [`ValidatedJson`] — deserialize + validate request bodies
+//! - [`RezisError`] — consistent API error responses
+//!
+//! # Example
+//!
+//! ```no_run
+//! use rezis::{json, RezisApp};
+//!
+//! #[tokio::main]
+//! async fn main() {
+//!     RezisApp::new()
+//!         .get("/", || async { json("Hello from Rezis") })
+//!         .with_health("/health")
+//!         .listen("0.0.0.0:3000")
+//!         .await;
+//! }
+//! ```
 pub mod app;
 pub mod config;
 pub mod controller;

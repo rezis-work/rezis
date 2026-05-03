@@ -8,7 +8,7 @@ use crate::logging;
 use crate::module::{Module, ModuleContext};
 use crate::routing::{add_get, add_health_route, add_post};
 
-/// NestJS-style fluent app builder over Axum.
+/// Main application builder for Rezis APIs (NestJS-style composition over Axum).
 pub struct RezisApp {
     router: Router,
     routes: Vec<(Method, String)>,

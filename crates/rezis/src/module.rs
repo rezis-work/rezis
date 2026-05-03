@@ -3,7 +3,7 @@ use http::Method;
 
 use crate::controller::{Controller, RouteBuilder};
 
-/// Composable application slice (NestJS-style module).
+/// Groups controllers and nested modules for registration on [`crate::RezisApp`].
 pub trait Module: Send + Sync + 'static {
     fn register(&self, ctx: &mut ModuleContext<'_>);
 }

@@ -10,7 +10,10 @@ use validator::Validate;
 
 use crate::error::{validation_errors_to_details, RezisError};
 
-/// JSON body extractor that runs [`Validate`] after deserialization.
+/// Axum extractor that deserializes JSON and validates with [`validator::Validate`].
+///
+/// On failure, responds with the standard error envelope (including `INVALID_JSON` or
+/// `VALIDATION_ERROR` with field details).
 #[derive(Debug)]
 pub struct ValidatedJson<T>(pub T);
 
